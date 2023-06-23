@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: wm-keycloak
+  name: wm-keycloak-0
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keycloak-secret
+type: Opaque
+data:
+  keycloak-admin-password: YWRtaW4=  #admin
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wm-keycloak
+spec:
+  selector:
+    app: wm-keycloak
+  type: LoadBalancer
+  ports:
+    - name: "9080"
+      port: 9080
+      targetPort: 9080
+    - name: "9443"
+      port: 9443
+      targetPort: 9443
+    - name: "10990"
+      port: 10990
+      targetPort: 10990
+    - name: "8080"
+      port: 8080
+      targetPort: 8080
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wm-keycloak
+spec:
+  serviceName: wm-keycloak
+  selector:
+    matchLabels:
+      app: wm-keycloak
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: wm-keycloak
+    spec:
+      containers:
+        - name: wm-keycloak
+          image: jboss/keycloak:16.1.0
+          imagePullPolicy: Always
+          args:
+            - -b
+            - 0.0.0.0
+            - -Dkeycloak.migration.action=import
+            - -Dkeycloak.migration.provider=dir
+            - -Dkeycloak.migration.dir=/opt/jboss/keycloak/realm-config
+            - -Dkeycloak.migration.strategy=OVERWRITE_EXISTING
+            - -Djboss.socket.binding.port-offset=1000
+            - -Dkeycloak.profile.feature.upload_scripts=enabled
+          env:
+            - name: DB_VENDOR
+              value: h2
+            - name: KEYCLOAK_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: keycloak-admin-password
+            - name: KEYCLOAK_USER
+              value: admin
+          ports:
+            - containerPort: 8080
+            - containerPort: 9080
+            - containerPort: 9443
+            - containerPort: 10990
+          volumeMounts:
+            - mountPath: /opt/jboss/keycloak/realm-config
+              name: wm-keycloak
+      volumes:
+         - name: wm-keycloak
+           persistentVolumeClaim:
+             claimName: wm-keycloak-0

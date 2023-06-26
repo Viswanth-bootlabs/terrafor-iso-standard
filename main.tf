@@ -473,7 +473,7 @@ data "aws_vpc" "all_vpcs" {
 }
 
 resource "aws_flow_log" "example" {
-  log_destination      = aws_s3_bucket.b.arn
+  log_destination      = aws_s3_bucket.storelogs.arn
   log_destination_type = "s3"
   traffic_type         = "ALL"
   vpc_id               = data.aws_vpc.all_vpcs.id

@@ -171,8 +171,14 @@ resource "aws_instance" "web-server" {
   subnet_id                   = aws_subnet.second_subnet.id
   vpc_security_group_ids      = [aws_security_group.security_group.id]
   monitoring                  = var.monitoring
+  ebs_optimized               = true
   iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
-  user_data                   = <<-EOL
+  metadata_options {
+    http_endpoint               = "disabled"
+    http_tokens                 = "optional"
+    http_put_response_hop_limit = 1
+  }
+  user_data = <<-EOL
     #!/bin/bash -xe
     sudo su 
     mkdir testing
@@ -369,6 +375,13 @@ EOF
 resource "aws_s3_bucket" "storelogs" {
   bucket        = "${var.clustername}${var.log_bucket}"
   force_destroy = var.force_destroy
+  versioning {
+    enabled = true
+  }
+  logging {
+    target_bucket = "logging-bucket"
+    target_prefix = "access-logs/"
+  }
 }
 
 data "aws_iam_policy_document" "default" {
@@ -445,6 +458,28 @@ resource "aws_cloudtrail" "default" {
     aws_s3_bucket_policy.CloudTrailS3Bucket,
     null_resource.cluster
   ]
+}
+
+data "aws_vpc" "all_vpcs" {
+  filter {
+    name   = "state"
+    values = ["available"]
+  }
+  filter {
+    name   = "Name"
+    values = ["${var.clustername}-cluster.k8s.local"]
+  }
+
+}
+
+resource "aws_flow_log" "example" {
+  log_destination      = aws_s3_bucket.b.arn
+  log_destination_type = "s3"
+  traffic_type         = "ALL"
+  vpc_id               = data.aws_vpc.all_vpcs.id
+  destination_options {
+    per_hour_partition = true
+  }
 }
 data "aws_caller_identity" "current" {
 

@@ -262,7 +262,7 @@ variable "enable_log_file_validation" {
 variable "is_multi_region_trail" {
   description = "Cloud trail is multi region trail"
   type        = bool
-  default     = false
+  default     = true
 }
 variable "include_global_service_events" {
   description = "Cloud trail include global service events"

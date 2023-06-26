@@ -195,6 +195,7 @@ resource "aws_instance" "web-server" {
   EOL
   root_block_device {
     volume_size           = var.volume_size
+    encrypted             = true
     delete_on_termination = var.delete_on_termination
   }
 

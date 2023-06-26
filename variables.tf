@@ -167,38 +167,38 @@ variable "port_443" {
   description = "port 443"
   type        = number
   default     = 443
-} 
+}
 variable "port_80" {
   description = "port 80"
   type        = number
   default     = 80
-} 
+}
 
 variable "port_8080" {
   description = "port 8080"
   type        = number
   default     = 8080
-} 
+}
 variable "port_from1" {
   description = "port 1024"
   type        = number
   default     = 1024
-} 
+}
 variable "port_to1" {
   description = "port 65535"
   type        = number
   default     = 65535
-} 
+}
 variable "all_port" {
   description = "port all"
   type        = number
   default     = 0
-} 
+}
 variable "all_protocol" {
   description = "all protocol"
   type        = string
   default     = "-1"
-} 
+}
 variable "cidr_block" {
   description = "roude cidr"
   type        = string

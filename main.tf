@@ -440,7 +440,7 @@ resource "aws_cloudtrail" "default" {
   enable_log_file_validation    = var.enable_log_file_validation
   is_multi_region_trail         = var.is_multi_region_trail
   include_global_service_events = var.include_global_service_events
-  s3_key_prefix = var.s3_key_prefix
+  s3_key_prefix                 = var.s3_key_prefix
   depends_on = [
     aws_s3_bucket_policy.CloudTrailS3Bucket,
     null_resource.cluster
@@ -522,9 +522,9 @@ resource "aws_wafv2_web_acl" "example" {
   }
 
   visibility_config {
-    cloudwatch_metrics_enabled =  var.visibility_config
+    cloudwatch_metrics_enabled = var.visibility_config
     metric_name                = var.waf_visibility_config
-    sampled_requests_enabled   =  var.visibility_config
+    sampled_requests_enabled   = var.visibility_config
   }
   depends_on = [
     null_resource.cluster

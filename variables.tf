@@ -174,10 +174,10 @@ variable "port_80" {
   default     = 80
 }
 
-variable "port_8080" {
-  description = "port 8080"
-  type        = number
-  default     = 8080
+variable "nat_ip" {
+  description = "NAT ip"
+  type        = list(string)
+  default     = [""]
 }
 variable "port_from1" {
   description = "port 1024"

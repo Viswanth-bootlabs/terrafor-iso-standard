@@ -113,23 +113,24 @@ resource "aws_security_group" "security_group" {
     from_port   = var.port_80
     to_port     = var.port_80
     protocol    = var.protocol
-    cidr_blocks = var.sg_cidr
+    cidr_blocks = [aws_vpc.my_vpc.cidr_block]
 
   }
-  ingress {
-    description = var.ingress_discription
-    from_port   = var.port_8080
-    to_port     = var.port_8080
-    protocol    = var.protocol
-    cidr_blocks = var.sg_cidr
 
-  }
   ingress {
     description = var.ingress_discription
     from_port   = var.port_from1
     to_port     = var.port_to1
     protocol    = var.protocol
     cidr_blocks = [aws_vpc.my_vpc.cidr_block]
+
+  }
+  ingress {
+    description = var.ingress_discription
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = var.nat_ip
 
   }
   egress {
@@ -454,13 +455,14 @@ resource "aws_cloudtrail" "default" {
   is_multi_region_trail         = var.is_multi_region_trail
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
+  kms_key_id                    = aws_kms_key.Key_store_log.arn
   depends_on = [
     aws_s3_bucket_policy.CloudTrailS3Bucket,
     null_resource.cluster
   ]
 }
 
-data "aws_vpc" "all_vpcs" {
+data "aws_vpc" "my_vpc" {
   filter {
     name   = "state"
     values = ["available"]
@@ -476,7 +478,7 @@ resource "aws_flow_log" "example" {
   log_destination      = aws_s3_bucket.storelogs.arn
   log_destination_type = "s3"
   traffic_type         = "ALL"
-  vpc_id               = data.aws_vpc.all_vpcs.id
+  vpc_id               = data.aws_vpc.my_vpc.id
   destination_options {
     per_hour_partition = true
   }

@@ -176,7 +176,7 @@ resource "aws_instance" "chaos_host_server" {
   iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
   metadata_options {
     http_endpoint               = "disabled"
-    http_tokens                 = "optional"
+    http_tokens                 = "required"
     http_put_response_hop_limit = 1
   }
   user_data = <<-EOL
@@ -384,8 +384,50 @@ resource "aws_s3_bucket" "storelogs" {
     target_bucket = "logging-bucket"
     target_prefix = "access-logs/"
   }
+
+}
+resource "aws_s3control_bucket_lifecycle_configuration" "example" {
+  bucket = aws_s3_bucket.storelogs.bucket
+
+  rule {
+    expiration {
+      days = 365
+    }
+
+    filter {
+      prefix = "logs/"
+    }
+
+    id = "logs"
+  }
 }
 
+
+
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "chaos" {
+  bucket = aws_s3_bucket.storelogs.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.Key_store_log.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
+  bucket = aws_s3_bucket.storelogs.bucket
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
+  name       = "chaos_cloudtrail"
+  kms_key_id = aws_kms_key.Key_store_log.id
+
+}
 data "aws_iam_policy_document" "default" {
   statement {
     sid    = "AWSCloudTrailCreateLogStream2014110"
@@ -457,6 +499,7 @@ resource "aws_cloudtrail" "chaos_cloudtrail" {
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
   kms_key_id                    = aws_kms_key.Key_store_log.arn
+  cloud_watch_logs_group_arn    = ""
   depends_on = [
     aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
     null_resource.chaos_cluster_creation
@@ -496,8 +539,6 @@ resource "aws_inspector2_enabler" "chaos_inspector" {
   ]
 }
 
-
-
 resource "aws_guardduty_detector" "chaos_detector" {
   enable                       = var.guardduty_enable
   finding_publishing_frequency = var.finding_publishing_frequency
@@ -518,8 +559,6 @@ resource "aws_guardduty_detector" "chaos_detector" {
     null_resource.chaos_cluster_creation
   ]
 }
-
-
 
 resource "aws_securityhub_account" "chaos_enable_securityhub" {
   depends_on = [

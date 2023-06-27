@@ -41,23 +41,23 @@ resource "aws_iam_role_policy" "role_policy" {
 
 
 
-resource "aws_vpc" "my_vpc" {
+resource "aws_vpc" "chaos_vpc" {
   cidr_block = var.vpc_cidir
 
   tags = {
     Name = "${var.clustername}${var.vpc_name}"
   }
 }
-resource "aws_route53_zone" "private_zone" {
+resource "aws_route53_zone" "chaos_private_zone" {
   name = "${var.clustername}${var.roure53_name}"
   vpc {
-    vpc_id     = aws_vpc.my_vpc.id
+    vpc_id     = aws_vpc.chaos_vpc.id
     vpc_region = var.region
   }
 }
 
-resource "aws_subnet" "second_subnet" {
-  vpc_id            = aws_vpc.my_vpc.id
+resource "aws_subnet" "chaos_subnet" {
+  vpc_id            = aws_vpc.chaos_vpc.id
   cidr_block        = var.subnet2_cidir
   availability_zone = var.subnet_zone
 
@@ -65,18 +65,18 @@ resource "aws_subnet" "second_subnet" {
     Name = "${var.clustername}${var.subnet2_cidir}"
   }
 }
-resource "aws_internet_gateway" "chaos-internet-gateway" {
-  vpc_id = aws_vpc.my_vpc.id
+resource "aws_internet_gateway" "chaos_internet_gateway" {
+  vpc_id = aws_vpc.chaos_vpc.id
   tags = {
     Name = "${var.clustername}${var.Ig_name}"
   }
 }
-resource "aws_route_table" "chaos-rout-table" {
-  vpc_id = aws_vpc.my_vpc.id
+resource "aws_route_table" "chaos_rout_table" {
+  vpc_id = aws_vpc.chaos_vpc.id
 
   route {
     cidr_block = var.cidr_block
-    gateway_id = aws_internet_gateway.chaos-internet-gateway.id
+    gateway_id = aws_internet_gateway.chaos_internet_gateway.id
   }
 
   tags = {
@@ -84,13 +84,13 @@ resource "aws_route_table" "chaos-rout-table" {
   }
 }
 resource "aws_route_table_association" "chaos-association" {
-  subnet_id      = aws_subnet.second_subnet.id
-  route_table_id = aws_route_table.chaos-rout-table.id
+  subnet_id      = aws_subnet.chaos_subnet.id
+  route_table_id = aws_route_table.chaos_rout_table.id
 }
 
-resource "aws_security_group" "security_group" {
+resource "aws_security_group" "chaos_security_group" {
   name   = "${var.clustername}${var.security_group_name}"
-  vpc_id = aws_vpc.my_vpc.id
+  vpc_id = aws_vpc.chaos_vpc.id
 
   ingress {
     description = var.ingress_discription
@@ -113,7 +113,7 @@ resource "aws_security_group" "security_group" {
     from_port   = var.port_80
     to_port     = var.port_80
     protocol    = var.protocol
-    cidr_blocks = [aws_vpc.my_vpc.cidr_block]
+    cidr_blocks = [aws_vpc.chaos_vpc.cidr_block]
 
   }
 
@@ -122,7 +122,7 @@ resource "aws_security_group" "security_group" {
     from_port   = var.port_from1
     to_port     = var.port_to1
     protocol    = var.protocol
-    cidr_blocks = [aws_vpc.my_vpc.cidr_block]
+    cidr_blocks = [aws_vpc.chaos_vpc.cidr_block]
 
   }
   ingress {
@@ -158,22 +158,22 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["${data.aws_caller_identity.current.account_id}"]
+  owners = ["${data.aws_caller_identity.current_account.account_id}"]
 }
-resource "aws_iam_instance_profile" "ec2_profile" {
+resource "aws_iam_instance_profile" "chaos_ec2_profile" {
   name = "${var.clustername}${var.ec2_profile_name}"
   role = aws_iam_role.iam_role.name
 }
-resource "aws_instance" "web-server" {
+resource "aws_instance" "chaos_host_server" {
   ami                         = data.aws_ami.ubuntu.id
   instance_type               = var.instance_type
   associate_public_ip_address = var.associate_public_ip_address
-  key_name                    = aws_key_pair.generated_key.key_name
-  subnet_id                   = aws_subnet.second_subnet.id
-  vpc_security_group_ids      = [aws_security_group.security_group.id]
+  key_name                    = aws_key_pair.chaos_key.key_name
+  subnet_id                   = aws_subnet.chaos_subnet.id
+  vpc_security_group_ids      = [aws_security_group.chaos_security_group.id]
   monitoring                  = var.monitoring
   ebs_optimized               = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
   metadata_options {
     http_endpoint               = "disabled"
     http_tokens                 = "optional"
@@ -202,15 +202,15 @@ resource "aws_instance" "web-server" {
     Name = "${var.clustername}${var.ec2_name}"
   }
   depends_on = [
-    aws_subnet.second_subnet
+    aws_subnet.chaos_subnet
   ]
 }
-resource "null_resource" "cluster" {
+resource "null_resource" "chaos_cluster_creation" {
   connection {
     type        = "ssh"
-    host        = aws_instance.web-server.public_ip
+    host        = aws_instance.chaos_host_server.public_ip
     user        = "ubuntu"
-    private_key = tls_private_key.private_key.private_key_pem
+    private_key = tls_private_key.chaos_private_key.private_key_pem
   }
 
   provisioner "file" {
@@ -235,26 +235,26 @@ resource "null_resource" "cluster" {
     ]
   }
   depends_on = [
-    aws_instance.web-server
+    aws_instance.chaos_host_server
   ]
 }
 
-resource "tls_private_key" "private_key" {
+resource "tls_private_key" "chaos_private_key" {
   algorithm = var.ec2_algorithm
   rsa_bits  = var.ec2_rsa_bits
 }
 
-resource "aws_key_pair" "generated_key" {
+resource "aws_key_pair" "chaos_key" {
   key_name   = "${var.clustername}${var.key_name}"
-  public_key = tls_private_key.private_key.public_key_openssh
+  public_key = tls_private_key.chaos_private_key.public_key_openssh
 
   provisioner "local-exec" {
-    command = "echo '${tls_private_key.private_key.private_key_pem}' > ./chaos-key.pem"
+    command = "echo '${tls_private_key.chaos_private_key.private_key_pem}' > ./chaos-key.pem"
   }
 }
 
 
-resource "aws_cloudwatch_dashboard" "main" {
+resource "aws_cloudwatch_dashboard" "chaos_dashbord" {
   dashboard_name = "${var.clustername}${var.dashboard_name}"
 
   dashboard_body = <<EOF
@@ -294,7 +294,7 @@ resource "aws_cloudwatch_dashboard" "main" {
                  "AWS/EC2",
                  "CPUUtilization",
                  "InstanceId",
-                 "${aws_instance.web-server.id}"
+                 "${aws_instance.chaos_host_server.id}"
                  ]
                 ],
                 "region": "${var.region}",
@@ -369,7 +369,7 @@ resource "aws_cloudwatch_dashboard" "main" {
 }
 EOF
   depends_on = [
-    aws_instance.web-server
+    aws_instance.chaos_host_server
   ]
 }
 
@@ -432,7 +432,7 @@ data "aws_iam_policy_document" "default" {
   }
 }
 
-resource "aws_s3_bucket_policy" "CloudTrailS3Bucket" {
+resource "aws_s3_bucket_policy" "chaos_CloudTrail_S3Bucket" {
   bucket     = aws_s3_bucket.storelogs.id
   depends_on = [aws_s3_bucket.storelogs]
   policy     = data.aws_iam_policy_document.default.json
@@ -447,7 +447,7 @@ resource "aws_kms_key" "Key_store_log" {
   }
 }
 
-resource "aws_cloudtrail" "default" {
+resource "aws_cloudtrail" "chaos_cloudtrail" {
   name                          = "${var.clustername}${var.cloudtrail_name}"
   enable_logging                = var.enable_logging
   s3_bucket_name                = aws_s3_bucket.storelogs.bucket
@@ -457,8 +457,8 @@ resource "aws_cloudtrail" "default" {
   s3_key_prefix                 = var.s3_key_prefix
   kms_key_id                    = aws_kms_key.Key_store_log.arn
   depends_on = [
-    aws_s3_bucket_policy.CloudTrailS3Bucket,
-    null_resource.cluster
+    aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
+    null_resource.chaos_cluster_creation
   ]
 }
 
@@ -474,7 +474,7 @@ data "aws_vpc" "my_vpc" {
 
 }
 
-resource "aws_flow_log" "example" {
+resource "aws_flow_log" "chos_flow_logs_cluster" {
   log_destination      = aws_s3_bucket.storelogs.arn
   log_destination_type = "s3"
   traffic_type         = "ALL"
@@ -483,21 +483,21 @@ resource "aws_flow_log" "example" {
     per_hour_partition = true
   }
 }
-data "aws_caller_identity" "current" {
+data "aws_caller_identity" "current_account" {
 
 }
 
-resource "aws_inspector2_enabler" "test" {
-  account_ids    = [data.aws_caller_identity.current.account_id]
+resource "aws_inspector2_enabler" "chaos_inspector" {
+  account_ids    = [data.aws_caller_identity.current_account.account_id]
   resource_types = var.inspector_resource_types
   depends_on = [
-    null_resource.cluster
+    null_resource.chaos_cluster_creation
   ]
 }
 
 
 
-resource "aws_guardduty_detector" "MyDetector" {
+resource "aws_guardduty_detector" "chaos_detector" {
   enable                       = var.guardduty_enable
   finding_publishing_frequency = var.finding_publishing_frequency
   datasources {
@@ -514,63 +514,15 @@ resource "aws_guardduty_detector" "MyDetector" {
     }
   }
   depends_on = [
-    null_resource.cluster
+    null_resource.chaos_cluster_creation
   ]
 }
 
-resource "aws_wafv2_web_acl" "example" {
-  name     = "${var.clustername}${var.waf_name}"
-  scope    = var.waf_scope
-  provider = aws.east
-  default_action {
-    allow {}
-  }
 
-  rule {
-    name     = var.waf_rule_name
-    priority = var.waf_rule_priority
 
-    action {
-      block {}
-    }
-
-    statement {
-      rate_based_statement {
-        limit              = var.waf_limit
-        aggregate_key_type = var.waf_aggregate_key_type
-
-        scope_down_statement {
-          geo_match_statement {
-            country_codes = var.waf_rule_country_codes
-          }
-        }
-      }
-    }
-
-    visibility_config {
-      cloudwatch_metrics_enabled = var.visibility_config
-      metric_name                = var.waf_visibility_config
-      sampled_requests_enabled   = var.visibility_config
-    }
-  }
-
-  tags = {
-    Name = var.waf_visibility_config
-  }
-
-  visibility_config {
-    cloudwatch_metrics_enabled = var.visibility_config
-    metric_name                = var.waf_visibility_config
-    sampled_requests_enabled   = var.visibility_config
-  }
+resource "aws_securityhub_account" "chaos_enable_securityhub" {
   depends_on = [
-    null_resource.cluster
-  ]
-}
-
-resource "aws_securityhub_account" "example" {
-  depends_on = [
-    null_resource.cluster
+    null_resource.chaos_cluster_creation
   ]
 }
 

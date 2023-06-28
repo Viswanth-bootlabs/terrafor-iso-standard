@@ -49,7 +49,7 @@ variable "subnet1_cidir" {
 variable "subnet_zone" {
   description = "availability zone for the subnets"
   type        = string
-  default     = "ap-southeast-2a"
+  default     = "us-east-1a"
 }
 variable "subnet2_cidir" {
   description = "subnet2 cidir block"
@@ -125,7 +125,7 @@ variable "key_name" {
 variable "region" {
   description = "AWS Region the instance is launched in"
   type        = string
-  default     = "ap-southeast-2"
+  default     = "us-east-1"
 }
 
 variable "ec2_algorithm" {

@@ -163,7 +163,7 @@ resource "aws_iam_instance_profile" "chaos_ec2_profile" {
   role = aws_iam_role.iam_role.name
 }
 resource "aws_instance" "chaos_host_server" {
-  ami                         = "ami-0310483fb2b488153"
+  ami                         = "ami-053b0d53c279acc90"
   instance_type               = var.instance_type
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = aws_key_pair.chaos_key.key_name
@@ -220,10 +220,19 @@ resource "null_resource" "chaos_cluster_creation" {
     source      = "./Deployment"
     destination = "/home/ubuntu/Deployment"
   }
+  
+}
+resource "null_resource" "chaos_cluster_creation1" {
+  connection {
+    type        = "ssh"
+    host        = aws_instance.chaos_host_server.public_ip
+    user        = "ubuntu"
+    private_key = tls_private_key.chaos_private_key.private_key_pem
+  }
   provisioner "remote-exec" {
     inline = [
-      "export zone1='ap-southeast-2a'",
-      "export bucket='bucket-watermelon-27'",
+      "export zone1='us-east-1a'",
+      "export bucket='sailor-tfstate'",
       "export clustername='demo'",
       "export node_count=2",
       "echo $bucket",
@@ -387,25 +396,23 @@ resource "aws_s3_bucket_logging" "example" {
   target_bucket = aws_s3_bucket.storelogs.bucket
   target_prefix = "log/"
 }
-resource "aws_s3control_bucket_lifecycle_configuration" "example" {
-  bucket = aws_s3_bucket.storelogs.arn
+# resource "aws_s3control_bucket_lifecycle_configuration" "example" {
+#   bucket = aws_s3_bucket.storelogs.arn
 
-  rule {
-    expiration {
-      days = 365
-    }
-
-    filter {
-     
-     prefix = "logs/"
-      
-    }
-    id = "logs"
-
+#   rule {
+#     status = "Enabled"
+#     id     = "log_retention"
+#     filter {
+#       prefix = "logs/"
+#     }
+#     expiration {
+#       days = 7
+#     }
+#   }
     
-  }
+  
  
-}
+# }
 
 
 
@@ -430,7 +437,7 @@ resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
 }
 resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
   name       = "/logs"
-  kms_key_id = aws_kms_key.Key_store_log.arn
+  # kms_key_id = aws_kms_key.Key_store_log.id
   retention_in_days = "30"
 
 }

@@ -102,9 +102,9 @@ resource "aws_security_group" "chaos_security_group" {
   }
   ingress {
     description = var.ingress_discription
-    from_port   = var.port_443
-    to_port     = var.port_443
-    protocol    = var.protocol
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = var.sg_cidr
 
   }
@@ -144,28 +144,26 @@ resource "aws_security_group" "chaos_security_group" {
 }
 
 
-data "aws_ami" "ubuntu" {
-
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["${data.aws_caller_identity.current_account.account_id}"]
-}
+# data "aws_ami" "ubuntu-linux-2004" {
+#   most_recent = true
+#   owners      = ["810783914586"] # Canonical
+  
+#   filter {
+#     name   = "name"
+#     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+#   }
+  
+#   filter {
+#     name   = "virtualization-type"
+#     values = ["hvm"]
+#   }
+# }
 resource "aws_iam_instance_profile" "chaos_ec2_profile" {
   name = "${var.clustername}${var.ec2_profile_name}"
   role = aws_iam_role.iam_role.name
 }
 resource "aws_instance" "chaos_host_server" {
-  ami                         = data.aws_ami.ubuntu.id
+  ami                         = "ami-0310483fb2b488153"
   instance_type               = var.instance_type
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = aws_key_pair.chaos_key.key_name
@@ -174,11 +172,11 @@ resource "aws_instance" "chaos_host_server" {
   monitoring                  = var.monitoring
   ebs_optimized               = true
   iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
-  metadata_options {
-    http_endpoint               = "disabled"
-    http_tokens                 = "required"
-    http_put_response_hop_limit = 1
-  }
+  # metadata_options {
+    
+  #   http_tokens                 = "required"
+  #   http_put_response_hop_limit = 1
+  # }
   user_data = <<-EOL
     #!/bin/bash -xe
     sudo su 
@@ -250,13 +248,13 @@ resource "aws_key_pair" "chaos_key" {
   public_key = tls_private_key.chaos_private_key.public_key_openssh
 
   provisioner "local-exec" {
-    command = "echo '${tls_private_key.chaos_private_key.private_key_pem}' > ./chaos-key.pem"
+    command = "echo '${tls_private_key.chaos_private_key.private_key_pem}' > ./${var.clustername}${var.key_name}.pem"
   }
 }
 
 
 resource "aws_cloudwatch_dashboard" "chaos_dashbord" {
-  dashboard_name = "${var.clustername}${var.dashboard_name}"
+  dashboard_name = "chaos-dashbord"
 
   dashboard_body = <<EOF
 { 
@@ -380,14 +378,17 @@ resource "aws_s3_bucket" "storelogs" {
   versioning {
     enabled = true
   }
-  logging {
-    target_bucket = "logging-bucket"
-    target_prefix = "access-logs/"
-  }
+  
 
 }
+resource "aws_s3_bucket_logging" "example" {
+  bucket = aws_s3_bucket.storelogs.id
+
+  target_bucket = aws_s3_bucket.storelogs.bucket
+  target_prefix = "log/"
+}
 resource "aws_s3control_bucket_lifecycle_configuration" "example" {
-  bucket = aws_s3_bucket.storelogs.bucket
+  bucket = aws_s3_bucket.storelogs.arn
 
   rule {
     expiration {
@@ -395,11 +396,15 @@ resource "aws_s3control_bucket_lifecycle_configuration" "example" {
     }
 
     filter {
-      prefix = "logs/"
+     
+     prefix = "logs/"
+      
     }
-
     id = "logs"
+
+    
   }
+ 
 }
 
 
@@ -410,7 +415,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "chaos" {
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.Key_store_log.arn
+      kms_master_key_id = aws_kms_key.Key_store_log.id
       sse_algorithm     = "aws:kms"
     }
   }
@@ -424,8 +429,9 @@ resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
   restrict_public_buckets = true
 }
 resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
-  name       = "chaos_cloudtrail"
-  kms_key_id = aws_kms_key.Key_store_log.id
+  name       = "/logs"
+  kms_key_id = aws_kms_key.Key_store_log.arn
+  retention_in_days = "30"
 
 }
 data "aws_iam_policy_document" "default" {
@@ -499,7 +505,7 @@ resource "aws_cloudtrail" "chaos_cloudtrail" {
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
   kms_key_id                    = aws_kms_key.Key_store_log.arn
-  cloud_watch_logs_group_arn    = ""
+  cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
   depends_on = [
     aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
     null_resource.chaos_cluster_creation
@@ -515,7 +521,9 @@ data "aws_vpc" "my_vpc" {
     name   = "Name"
     values = ["${var.clustername}-cluster.k8s.local"]
   }
-
+  depends_on = [
+    null_resource.chaos_cluster_creation
+  ]
 }
 
 resource "aws_flow_log" "chos_flow_logs_cluster" {

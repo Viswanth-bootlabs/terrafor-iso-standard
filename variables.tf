@@ -24,7 +24,7 @@ variable "iam_policy_name" {
 variable "clustername" {
   description = "iam policy name"
   type        = string
-  default     = "chaos_cluster"
+  default     = "chaoscluster"
 
 }
 
@@ -119,7 +119,7 @@ variable "ec2_name" {
 variable "key_name" {
   description = "Key name of the Key Pair to use for the instance; which can be managed using the aws_key_pair resource"
   type        = string
-  default     = "-key-name-cluster.k8s.local"
+  default     = "-key-name-cluster-sg_cidrk8s-local"
 }
 
 variable "region" {
@@ -177,7 +177,7 @@ variable "port_80" {
 variable "nat_ip" {
   description = "NAT ip"
   type        = list(string)
-  default     = [""]
+  default     = ["0.0.0.0/0"]
 }
 variable "port_from1" {
   description = "port 1024"
@@ -232,7 +232,7 @@ variable "dashboard_name" {
 variable "log_bucket" {
   description = "Name of log bucket"
   type        = string
-  default     = "-bucket-cluster.k8s.local"
+  default     = "bucketclusterk8slocal"
 }
 variable "force_destroy" {
   description = "Enambel bucket force destroy"

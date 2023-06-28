@@ -15,7 +15,6 @@ resource "aws_iam_role" "iam_role" {
     ]
   })
 }
-
 resource "aws_iam_role_policy" "role_policy" {
   name = "${var.clustername}${var.iam_policy_name}"
   role = aws_iam_role.iam_role.id
@@ -38,9 +37,6 @@ resource "aws_iam_role_policy" "role_policy" {
     ]
   })
 }
-
-
-
 resource "aws_vpc" "chaos_vpc" {
   cidr_block = var.vpc_cidir
 
@@ -55,7 +51,6 @@ resource "aws_route53_zone" "chaos_private_zone" {
     vpc_region = var.region
   }
 }
-
 resource "aws_subnet" "chaos_subnet" {
   vpc_id            = aws_vpc.chaos_vpc.id
   cidr_block        = var.subnet2_cidir
@@ -87,7 +82,6 @@ resource "aws_route_table_association" "chaos-association" {
   subnet_id      = aws_subnet.chaos_subnet.id
   route_table_id = aws_route_table.chaos_rout_table.id
 }
-
 resource "aws_security_group" "chaos_security_group" {
   name   = "${var.clustername}${var.security_group_name}"
   vpc_id = aws_vpc.chaos_vpc.id
@@ -140,19 +134,16 @@ resource "aws_security_group" "chaos_security_group" {
     cidr_blocks = var.sg_cidr
 
   }
-
 }
-
-
 # data "aws_ami" "ubuntu-linux-2004" {
 #   most_recent = true
 #   owners      = ["810783914586"] # Canonical
-  
+
 #   filter {
 #     name   = "name"
 #     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
 #   }
-  
+
 #   filter {
 #     name   = "virtualization-type"
 #     values = ["hvm"]
@@ -172,12 +163,7 @@ resource "aws_instance" "chaos_host_server" {
   monitoring                  = var.monitoring
   ebs_optimized               = true
   iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
-  # metadata_options {
-    
-  #   http_tokens                 = "required"
-  #   http_put_response_hop_limit = 1
-  # }
-  user_data = <<-EOL
+  user_data                   = <<-EOL
     #!/bin/bash -xe
     sudo su 
     mkdir testing
@@ -224,7 +210,7 @@ resource "null_resource" "chaos_cluster_creation" {
     inline = [
       "export zone1='ap-southeast-2a'",
       "export bucket='bucket-watermelon-27'",
-      "export clustername='demo'",
+      "export clustername='chaoscluster1'",
       "export node_count=2",
       "echo $bucket",
       "chmod +x kops-cluster.sh",
@@ -237,12 +223,10 @@ resource "null_resource" "chaos_cluster_creation" {
     aws_instance.chaos_host_server
   ]
 }
-
 resource "tls_private_key" "chaos_private_key" {
   algorithm = var.ec2_algorithm
   rsa_bits  = var.ec2_rsa_bits
 }
-
 resource "aws_key_pair" "chaos_key" {
   key_name   = "${var.clustername}${var.key_name}"
   public_key = tls_private_key.chaos_private_key.public_key_openssh
@@ -251,8 +235,6 @@ resource "aws_key_pair" "chaos_key" {
     command = "echo '${tls_private_key.chaos_private_key.private_key_pem}' > ./${var.clustername}${var.key_name}.pem"
   }
 }
-
-
 resource "aws_cloudwatch_dashboard" "chaos_dashbord" {
   dashboard_name = "chaos-dashbord"
 
@@ -371,15 +353,12 @@ EOF
     aws_instance.chaos_host_server
   ]
 }
-
 resource "aws_s3_bucket" "storelogs" {
   bucket        = "${var.clustername}${var.log_bucket}"
   force_destroy = var.force_destroy
   versioning {
     enabled = true
   }
-  
-
 }
 resource "aws_s3_bucket_logging" "example" {
   bucket = aws_s3_bucket.storelogs.id
@@ -387,29 +366,6 @@ resource "aws_s3_bucket_logging" "example" {
   target_bucket = aws_s3_bucket.storelogs.bucket
   target_prefix = "log/"
 }
-resource "aws_s3control_bucket_lifecycle_configuration" "example" {
-  bucket = aws_s3_bucket.storelogs.arn
-
-  rule {
-    expiration {
-      days = 365
-    }
-
-    filter {
-     
-     prefix = "logs/"
-      
-    }
-    id = "logs"
-
-    
-  }
- 
-}
-
-
-
-
 resource "aws_s3_bucket_server_side_encryption_configuration" "chaos" {
   bucket = aws_s3_bucket.storelogs.bucket
 
@@ -428,12 +384,11 @@ resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
-resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
-  name       = "/logs"
-  kms_key_id = aws_kms_key.Key_store_log.arn
-  retention_in_days = "30"
-
-}
+# resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
+#   name              = "/logs"
+#   kms_key_id        = aws_kms_key.Key_store_log.arn
+#   retention_in_days = "30"
+# }
 data "aws_iam_policy_document" "default" {
   statement {
     sid    = "AWSCloudTrailCreateLogStream2014110"
@@ -480,21 +435,161 @@ data "aws_iam_policy_document" "default" {
     }
   }
 }
-
 resource "aws_s3_bucket_policy" "chaos_CloudTrail_S3Bucket" {
   bucket     = aws_s3_bucket.storelogs.id
   depends_on = [aws_s3_bucket.storelogs]
   policy     = data.aws_iam_policy_document.default.json
 }
+data "aws_caller_identity" "current" {}
 
+data "aws_partition" "current" {}
+
+data "aws_region" "current" {}
+
+data "aws_iam_policy_document" "cloudwatch" {
+  policy_id = "key-policy-cloudwatch"
+  statement {
+    sid = "Enable IAM User Permissions"
+    actions = [
+      "kms:*",
+    ]
+    effect = "Allow"
+    principals {
+      type = "AWS"
+      identifiers = [
+        format(
+          "arn:%s:iam::%s:root",
+          data.aws_partition.current.partition,
+          data.aws_caller_identity.current.account_id
+        )
+      ]
+    }
+    resources = ["*"]
+  }
+  statement {
+    sid = "AllowCloudWatchLogs"
+    actions = [
+      "kms:Encrypt*",
+      "kms:Decrypt*",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:Describe*"
+    ]
+    effect = "Allow"
+    principals {
+      type = "Service"
+      identifiers = [
+        format(
+          "logs.%s.amazonaws.com",
+          data.aws_region.current.name
+        )
+      ]
+    }
+    resources = ["*"]
+  }
+}
 resource "aws_kms_key" "Key_store_log" {
   description             = var.kms_key_discriptyon
   deletion_window_in_days = var.KMS_deletion_window_in_days
   enable_key_rotation     = var.KMS_enable_key_rotation
+  policy                  = data.aws_iam_policy_document.cloudwatch.json
   tags = {
     Name = "${var.clustername}${var.Kms_key_name}"
   }
 }
+
+# resource "aws_iam_role" "cloudtrail_logs_role" {
+#   name               = "CloudTrail-CloudWatchLogs-Role"
+#   assume_role_policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Effect": "Allow",
+#       "Principal": {
+#         "Service": "cloudtrail.amazonaws.com"
+#       },
+#       "Action": "sts:AssumeRole"
+#     }
+#   ]
+# }
+# EOF
+# }
+
+
+# resource "aws_iam_role_policy" "cloudtrail_logs_policy" {
+#   name   = "CloudTrail-CloudWatchLogs-Policy"
+#   role   = aws_iam_role.cloudtrail_logs_role.id
+
+#   policy = <<EOF
+# {
+#   "Version": "2012-10-17",
+#   "Statement": [
+#     {
+#       "Effect": "Allow",
+#       "Action": [
+#         "logs:CreateLogGroup",
+#         "logs:CreateLogStream",
+#         "logs:PutLogEvents"
+#       ],
+#       "Resource": "*"
+#     }
+#   ]
+# }
+# EOF
+# }
+
+# r
+resource "aws_iam_role" "cloudwatch_role" {
+  name = "cloudwatch-role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "cloudtrail.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_policy" "cloudwatch_policy" {
+  name        = "cloudwatch-policy"
+  description = "Policy for CloudWatch access"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CloudWatchLogsAccess",
+      "Effect": "Allow",
+      "Action":"*",
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_policy_attachment" {
+  policy_arn = aws_iam_policy.cloudwatch_policy.arn
+  role       = aws_iam_role.cloudwatch_role.name
+  depends_on = [ aws_cloudtrail.chaos_cloudtrail ]
+}
+
+
+
+
+
+
 
 resource "aws_cloudtrail" "chaos_cloudtrail" {
   name                          = "${var.clustername}${var.cloudtrail_name}"
@@ -504,28 +599,25 @@ resource "aws_cloudtrail" "chaos_cloudtrail" {
   is_multi_region_trail         = var.is_multi_region_trail
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
-  kms_key_id                    = aws_kms_key.Key_store_log.arn
-  cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
+  # kms_key_id                    = aws_kms_key.Key_store_log.arn
+  # cloud_watch_logs_role_arn     = "${aws_iam_role.cloudwatch_role.arn}"
+  # cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
   depends_on = [
     aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
     null_resource.chaos_cluster_creation
+
   ]
 }
-
 data "aws_vpc" "my_vpc" {
+
   filter {
-    name   = "state"
-    values = ["available"]
-  }
-  filter {
-    name   = "Name"
-    values = ["${var.clustername}-cluster.k8s.local"]
+    name   = "tag:Name"
+    values = ["${var.clustername}-vpc-cluster.k8s.local"]
   }
   depends_on = [
     null_resource.chaos_cluster_creation
   ]
 }
-
 resource "aws_flow_log" "chos_flow_logs_cluster" {
   log_destination      = aws_s3_bucket.storelogs.arn
   log_destination_type = "s3"
@@ -536,9 +628,7 @@ resource "aws_flow_log" "chos_flow_logs_cluster" {
   }
 }
 data "aws_caller_identity" "current_account" {
-
 }
-
 resource "aws_inspector2_enabler" "chaos_inspector" {
   account_ids    = [data.aws_caller_identity.current_account.account_id]
   resource_types = var.inspector_resource_types
@@ -546,7 +636,6 @@ resource "aws_inspector2_enabler" "chaos_inspector" {
     null_resource.chaos_cluster_creation
   ]
 }
-
 resource "aws_guardduty_detector" "chaos_detector" {
   enable                       = var.guardduty_enable
   finding_publishing_frequency = var.finding_publishing_frequency
@@ -567,7 +656,6 @@ resource "aws_guardduty_detector" "chaos_detector" {
     null_resource.chaos_cluster_creation
   ]
 }
-
 resource "aws_securityhub_account" "chaos_enable_securityhub" {
   depends_on = [
     null_resource.chaos_cluster_creation

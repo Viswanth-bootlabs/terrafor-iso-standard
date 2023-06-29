@@ -91,45 +91,11 @@ resource "aws_route_table_association" "chaos-association" {
 resource "aws_security_group" "chaos_security_group" {
   name   = "${var.clustername}${var.security_group_name}"
   vpc_id = aws_vpc.chaos_vpc.id
-
   ingress {
     description = var.ingress_discription
-    from_port   = var.form_port
-    to_port     = var.to_port
+    from_port   = var.all_port
+    to_port     = var.all_port
     protocol    = var.protocol
-    cidr_blocks = var.sg_cidr
-
-  }
-  ingress {
-    description = var.ingress_discription
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = var.sg_cidr
-
-  }
-  ingress {
-    description = var.ingress_discription
-    from_port   = var.port_80
-    to_port     = var.port_80
-    protocol    = var.protocol
-    cidr_blocks = [aws_vpc.chaos_vpc.cidr_block]
-
-  }
-
-  ingress {
-    description = var.ingress_discription
-    from_port   = var.port_from1
-    to_port     = var.port_to1
-    protocol    = var.protocol
-    cidr_blocks = [aws_vpc.chaos_vpc.cidr_block]
-
-  }
-  ingress {
-    description = var.ingress_discription
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
     cidr_blocks = var.nat_ip
 
   }
@@ -143,27 +109,12 @@ resource "aws_security_group" "chaos_security_group" {
 
 }
 
-
-# data "aws_ami" "ubuntu-linux-2004" {
-#   most_recent = true
-#   owners      = ["810783914586"] # Canonical
-
-#   filter {
-#     name   = "name"
-#     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-#   }
-
-#   filter {
-#     name   = "virtualization-type"
-#     values = ["hvm"]
-#   }
-# }
 resource "aws_iam_instance_profile" "chaos_ec2_profile" {
   name = "${var.clustername}${var.ec2_profile_name}"
   role = aws_iam_role.iam_role.name
 }
 resource "aws_instance" "chaos_host_server" {
-  ami                         = "ami-0310483fb2b488153"
+  ami                         = var.ec2_ami
   instance_type               = var.instance_type
   associate_public_ip_address = var.associate_public_ip_address
   key_name                    = aws_key_pair.chaos_key.key_name
@@ -172,11 +123,6 @@ resource "aws_instance" "chaos_host_server" {
   monitoring                  = var.monitoring
   ebs_optimized               = true
   iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
-  # metadata_options {
-
-  #   http_tokens                 = "required"
-  #   http_put_response_hop_limit = 1
-  # }
   user_data = <<-EOL
     #!/bin/bash -xe
     sudo su 
@@ -222,12 +168,10 @@ resource "null_resource" "chaos_cluster_creation" {
   }
   provisioner "remote-exec" {
     inline = [
-      "export zone1='ap-southeast-2a'",
-      "export bucket='bucket-watermelon-27'",
-      "export clustername='demo1'",
-      "export node_count=2",
-      "echo $bucket",
-      "chmod +x kops-cluster.sh",
+      "export zone1=${var.zone}",
+      "export bucket=${var.bucket_name}",
+      "export clustername=${var.clustername}",
+      "export node_count=${var.node_count}",     
       "./kops-cluster.sh ",
       "kubectl apply -f Deployment"
 
@@ -465,7 +409,6 @@ resource "aws_cloudtrail" "chaos_cloudtrail" {
   is_multi_region_trail         = var.is_multi_region_trail
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
-  # cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
   depends_on = [
     aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
     null_resource.chaos_cluster_creation

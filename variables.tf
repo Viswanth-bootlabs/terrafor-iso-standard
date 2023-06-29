@@ -4,27 +4,30 @@ variable "iam_name" {
   default     = "-iam-cluster.k8s.local"
 
 }
-variable "node_count" {
-  description = "number of nodes to be create"
-  type        = number
-  default     = "1"
 
-}
 variable "zone" {
   description = "name of the iam name"
   type        = string
-  default     = " "
+  default     = "ap-southeast-2"
 
 }
+
 variable "iam_policy_name" {
   description = "name of the iam name"
   type        = string
   default     = "-policy-cluster.k8s.local"
 }
+
+variable "ec2_ami" {
+  description = "name of the iam name"
+  type        = string
+  default     = "ami-0310483fb2b488153"
+}
+
 variable "clustername" {
   description = "iam policy name"
   type        = string
-  default     = "demo1"
+  default     = "watermelon-chaos"
 
 }
 
@@ -41,22 +44,18 @@ variable "vpc_cidir" {
   default     = "10.0.0.0/16"
 }
 
-variable "subnet1_cidir" {
-  description = "cidir block for subnet"
-  type        = string
-  default     = "10.0.1.0/24"
-}
 variable "subnet_zone" {
   description = "availability zone for the subnets"
   type        = string
   default     = "ap-southeast-2a"
 }
-variable "subnet2_cidir" {
+
+variable "subnet_cidir" {
   description = "subnet2 cidir block"
   type        = string
   default     = "10.0.2.0/24"
 }
-variable "subnet2_name" {
+variable "subnet_name" {
   description = "name of the subnet2"
   type        = string
   default     = "-subnet-cluster.k8s.local"
@@ -65,24 +64,6 @@ variable "security_group_name" {
   description = "name of the security group"
   type        = string
   default     = "-sg-cluster.k8s.local"
-}
-
-variable "form_port" {
-  description = "Enter the from port"
-  type        = number
-  default     = 22
-}
-
-variable "to_port" {
-  description = "Enter the to port"
-  type        = number
-  default     = 22
-}
-
-variable "protocol" {
-  description = "Enter the to protocol"
-  type        = string
-  default     = "tcp"
 }
 
 variable "bucket_name" {
@@ -163,31 +144,10 @@ variable "ingress_discription" {
   default     = "TLS from VPC"
 }
 
-variable "port_443" {
-  description = "port 443"
-  type        = number
-  default     = 443
-}
-variable "port_80" {
-  description = "port 80"
-  type        = number
-  default     = 80
-}
-
 variable "nat_ip" {
   description = "NAT ip"
   type        = list(string)
   default     = ["0.0.0.0/0"]
-}
-variable "port_from1" {
-  description = "port 1024"
-  type        = number
-  default     = 1024
-}
-variable "port_to1" {
-  description = "port 65535"
-  type        = number
-  default     = 65535
 }
 variable "all_port" {
   description = "port all"
@@ -207,7 +167,7 @@ variable "cidr_block" {
 variable "ec2_profile_name" {
   description = "ec2_profile name"
   type        = string
-  default     = "ec2-profile-cluster.k8s.local"
+  default     = "-ec2-profile-cluster.k8s.local"
 }
 variable "associate_public_ip_address" {
   description = "Enable associate piblic ip"
@@ -223,11 +183,6 @@ variable "delete_on_termination" {
   description = "Monitor ec2 enable"
   type        = bool
   default     = false
-}
-variable "dashboard_name" {
-  description = "cloud watch dashboard name"
-  type        = string
-  default     = "-cloudwatch-dashbord-cluster.k8s.local"
 }
 variable "log_bucket" {
   description = "Name of log bucket"

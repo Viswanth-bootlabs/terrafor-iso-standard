@@ -147,12 +147,12 @@ resource "aws_security_group" "chaos_security_group" {
 # data "aws_ami" "ubuntu-linux-2004" {
 #   most_recent = true
 #   owners      = ["810783914586"] # Canonical
-  
+
 #   filter {
 #     name   = "name"
 #     values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
 #   }
-  
+
 #   filter {
 #     name   = "virtualization-type"
 #     values = ["hvm"]
@@ -173,7 +173,7 @@ resource "aws_instance" "chaos_host_server" {
   ebs_optimized               = true
   iam_instance_profile        = aws_iam_instance_profile.chaos_ec2_profile.name
   # metadata_options {
-    
+
   #   http_tokens                 = "required"
   #   http_put_response_hop_limit = 1
   # }
@@ -224,7 +224,7 @@ resource "null_resource" "chaos_cluster_creation" {
     inline = [
       "export zone1='ap-southeast-2a'",
       "export bucket='bucket-watermelon-27'",
-      "export clustername='demo'",
+      "export clustername='demo1'",
       "export node_count=2",
       "echo $bucket",
       "chmod +x kops-cluster.sh",
@@ -378,7 +378,7 @@ resource "aws_s3_bucket" "storelogs" {
   versioning {
     enabled = true
   }
-  
+
 
 }
 resource "aws_s3_bucket_logging" "example" {
@@ -387,39 +387,6 @@ resource "aws_s3_bucket_logging" "example" {
   target_bucket = aws_s3_bucket.storelogs.bucket
   target_prefix = "log/"
 }
-resource "aws_s3control_bucket_lifecycle_configuration" "example" {
-  bucket = aws_s3_bucket.storelogs.arn
-
-  rule {
-    expiration {
-      days = 365
-    }
-
-    filter {
-     
-     prefix = "logs/"
-      
-    }
-    id = "logs"
-
-    
-  }
- 
-}
-
-
-
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "chaos" {
-  bucket = aws_s3_bucket.storelogs.bucket
-
-  rule {
-    apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.Key_store_log.id
-      sse_algorithm     = "aws:kms"
-    }
-  }
-}
 resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
   bucket = aws_s3_bucket.storelogs.bucket
 
@@ -427,12 +394,6 @@ resource "aws_s3_bucket_public_access_block" "chaos_public_access_block" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
-}
-resource "aws_cloudwatch_log_group" "chaos_cloudwatch" {
-  name       = "/logs"
-  kms_key_id = aws_kms_key.Key_store_log.arn
-  retention_in_days = "30"
-
 }
 data "aws_iam_policy_document" "default" {
   statement {
@@ -504,8 +465,7 @@ resource "aws_cloudtrail" "chaos_cloudtrail" {
   is_multi_region_trail         = var.is_multi_region_trail
   include_global_service_events = var.include_global_service_events
   s3_key_prefix                 = var.s3_key_prefix
-  kms_key_id                    = aws_kms_key.Key_store_log.arn
-  cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
+  # cloud_watch_logs_group_arn    = aws_cloudwatch_log_group.chaos_cloudwatch.arn
   depends_on = [
     aws_s3_bucket_policy.chaos_CloudTrail_S3Bucket,
     null_resource.chaos_cluster_creation

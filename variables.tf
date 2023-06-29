@@ -24,7 +24,7 @@ variable "iam_policy_name" {
 variable "clustername" {
   description = "iam policy name"
   type        = string
-  default     = "chaoscluster"
+  default     = "demo1"
 
 }
 
